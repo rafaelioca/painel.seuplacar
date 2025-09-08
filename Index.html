@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel Adm | Seu Placar Esportes</title>
+  <link href="https://fonts.googleapis.com/css2?family=Saira:wght@400;700;900&display=swap" rel="stylesheet">
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <style>
+    body { font-family: 'Saira', Arial, sans-serif; background: #000; }
+    .menu-lateral {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 200px;
+      height: 100vh;
+      background: #FFD600;
+      box-shadow: 2px 0 8px rgba(0,0,0,0.12);
+      padding-top: 48px;
+      z-index: 100;
+      display: none;
+    }
+    .menu-lateral ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .menu-lateral li {
+      margin-bottom: 24px;
+    }
+    .menu-lateral a.menu-opcao {
+      display: block;
+      color: #111;
+      font-size: 1.2em;
+      font-weight: bold;
+      text-decoration: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      transition: background 0.2s, color 0.2s;
+    }
+    .menu-lateral a.menu-opcao.ativo {
+      background: #fff;
+      color: #111;
+    }
+    .menu-lateral a.menu-opcao:hover {
+      background: #111;
+      color: #FFD600;
+    }
+    .painel-container, .login-container {
+      margin-left: 200px;
+      background: #fff;
+      max-width: 700px;
+      padding: 32px 32px 32px 32px;
+      border-radius: 24px;
+    }
+    .login-container { max-width: 400px; margin: 40px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 32px; }
+    .login-container h2 { color: #FFD600; text-align: center; margin-bottom: 32px; }
+    .login-container label { font-weight: bold; color: #222; margin-top: 16px; display: block; }
+    .login-container input { width: 100%; padding: 10px; margin-top: 6px; border-radius: 8px; border: 1px solid #ccc; font-size: 1em; }
+    .login-container button { background: #FFD600; color: #111; font-weight: bold; border: none; border-radius: 8px; padding: 12px 24px; cursor: pointer; margin-top: 24px; }
+    .login-container .msg { margin-top: 18px; font-weight: bold; color: #222; }
+  </style>
+</head>
+<body>
+  <div class="menu-lateral" id="menu-lateral">
+    <ul>
+      <li><a href="#" class="menu-opcao">Resultados</a></li>
+      <li><a href="#" class="menu-opcao">Destaques</a></li>
+      <li><a href="#" class="menu-opcao">Notícias</a></li>
+      <li><a href="#" class="menu-opcao">Patrocinadores</a></li>
+    </ul>
+  </div>
+  <div style="margin-left:220px;">
+    <div class="login-container" id="login-box">
+      <h2>Login Painel Adm</h2>
+      <label for="login-email">E-mail:</label>
+      <input type="email" id="login-email" placeholder="Digite seu e-mail">
+      <label for="login-senha">Senha:</label>
+      <input type="password" id="login-senha" placeholder="Digite sua senha">
+      <button id="login-btn">Entrar</button>
+      <div class="msg" id="login-msg"></div>
+    </div>
+    <div class="painel-container" id="painel-conteudo" style="display:none;">
+      <!-- Conteúdo dos menus será renderizado aqui -->
+    </div>
+  </div>
+  <script>
+    // Configuração do Firebase
+    var firebaseConfig = {
+      apiKey: "AIzaSyDOpvSQ7suA89IVhD34u5Iw5sNCMcJnnUQ",
+      authDomain: "destaques-seuplacar.firebaseapp.com",
+      projectId: "destaques-seuplacar",
+      storageBucket: "destaques-seuplacar.appspot.com",
+      messagingSenderId: "622018085029",
+      appId: "1:622018085029:web:0976b1b6fa84b66a1d4d4c",
+      measurementId: "G-KNF2JVHLJ2"
+    };
+    firebase.initializeApp(firebaseConfig);
+    var db = firebase.firestore();
+    // Autenticação Firebase
+    $(document).ready(function() {
+      $('#login-btn').on('click', function() {
+        var email = $('#login-email').val();
+        var senha = $('#login-senha').val();
+        firebase.auth().signInWithEmailAndPassword(email, senha)
+          .then(function(userCredential) {
+            $('#login-box').hide();
+            $('#menu-lateral').show();
+            $('#painel-conteudo').show();
+            $('#login-msg').text('');
+            // Renderizar menu inicial
+            $('.menu-opcao').removeClass('ativo');
+            $('.menu-opcao').first().addClass('ativo');
+            renderResultados();
+          })
+          .catch(function(error) {
+            $('#login-msg').css('color','#c00').text('Login inválido!');
+          });
+      });
+      // Alternância de menus
+      $('.menu-opcao').click(function(e){
+        e.preventDefault();
+        $('.menu-opcao').removeClass('ativo');
+        $(this).addClass('ativo');
+        var texto = $(this).text();
+        if(texto === 'Resultados') renderResultados();
+        else if(texto === 'Destaques') renderDestaques();
+        else if(texto === 'Notícias') renderNoticias();
+        else if(texto === 'Patrocinadores') renderPatrocinadores();
+      });
+    });
+    // Funções de renderização dos menus (implementação será feita em seguida)
+    function renderResultados() {
+      $('#painel-conteudo').html(`
+        <h2 style="color:#FFD600;">Painel de Resultados</h2>
+        <div style="display:flex;flex-direction:column;gap:32px;max-width:900px;margin:auto;">
+          <div style="width:100%;">
+            <h3 style="color:#222;">Criar Evento</h3>
+            <form id="form-evento" style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;max-width:700px;">
+              <select id="evento-campeonato" required style="padding:6px;">
+                <option value="">Selecione o Campeonato</option>
+              </select>
+              <button type="submit" style="background:#FFD600;color:#222;border:none;padding:8px 18px;cursor:pointer;border-radius:6px;font-weight:bold;">Cadastrar Evento</button>
+            </form>
+            <div id="eventos-lista"></div>
+          </div>
+          <div style="width:100%;">
+              <h3 style="color:#222;">Cadastrar Campeonato</h3>
+              <form id="form-campeonato" style="display:flex;gap:8px;align-items:center;margin-bottom:18px;max-width:700px;">
+                <input type="text" id="nome-campeonato" placeholder="Nome do Campeonato" required style="padding:6px;">
+                <input type="text" id="logo-campeonato" placeholder="URL do Logo 32x32px" required style="padding:6px;width:160px;">
+                <button type="submit" style="background:#FFD600;color:#222;border:none;padding:8px 18px;cursor:pointer;border-radius:6px;font-weight:bold;">Cadastrar</button>
+              </form>
+              <div id="campeonatos-lista"></div>
+          </div>
+          <div style="width:100%;">
+            <h3 style="color:#222;">Cadastrar Equipe</h3>
+            <form id="form-equipe" style="display:flex;gap:8px;align-items:center;margin-bottom:18px;max-width:700px;">
+              <input type="text" id="nome-equipe" placeholder="Nome da Equipe" required style="padding:6px;">
+              <input type="text" id="logo-equipe" placeholder="URL do Logo 32x32px" required style="padding:6px;width:160px;">
+              <button type="submit" style="background:#FFD600;color:#222;border:none;padding:8px 18px;cursor:pointer;border-radius:6px;font-weight:bold;">Cadastrar</button>
+            </form>
+            <div id="equipes-lista"></div>
+          </div>
+        </div>
+        <div class="msg" id="msg-resultados"></div>
+      `);
+      renderCampeonatos();
+      renderEquipes();
+      renderEventosDinamico();
+      }
+
+      // CRUD de Campeonatos
+      // CRUD de Equipes
+      // CRUD de Eventos Dinâmicos
+      function renderEventosDinamico() {
+        const lista = document.getElementById('eventos-lista');
+        lista.innerHTML = '<p>Carregando...</p>';
+        // Carregar campeonatos para o select
+        firebase.firestore().collection('campeonatos').orderBy('nome').get().then(snapCampeonatos => {
+          const select = document.getElementById('evento-campeonato');
+          select.innerHTML = '<option value="">Selecione o Campeonato</option>';
+          snapCampeonatos.forEach(doc => {
+            const data = doc.data();
+            select.innerHTML += `<option value="${doc.id}">${data.nome}</option>`;
+          });
+        });
+        // Carregar eventos
+  firebase.firestore().collection('eventos').get().then(snapshot => {
+          if (snapshot.empty) {
+            lista.innerHTML = '<p>Nenhum evento cadastrado.</p>';
+            return;
+          }
+          lista.innerHTML = '';
+          let count = 0;
+          snapshot.forEach(doc => {
+            if (++count > 10) return; // Limite de 10 eventos
+            const data = doc.data();
+            const eventoDiv = document.createElement('div');
+            eventoDiv.className = 'evento-dinamico';
+            eventoDiv.style.border = '1px solid #FFD600';
+            eventoDiv.style.borderRadius = '8px';
+            eventoDiv.style.marginBottom = '12px';
+            eventoDiv.style.background = '#FFFDE7';
+            eventoDiv.style.padding = '10px';
+            eventoDiv.innerHTML = `
+              <div style="display:flex;align-items:center;gap:8px;">
+                <button class="btn-expand-evento" data-id="${doc.id}" style="background:#FFD600;border:none;border-radius:50%;width:28px;height:28px;font-weight:bold;cursor:pointer;">+</button>
+                <span style="font-size:1.1em;font-weight:600;">${data.nome}</span>
+                <span style="color:#888;">Campeonato: <b>${data.campeonatoNome||''}</b></span>
+                <button onclick="editarEvento('${doc.id}')" style="margin-left:auto;background:#eee;border:none;padding:4px 10px;cursor:pointer;">Editar</button>
+                <button onclick="excluirEvento('${doc.id}')" style="background:#ff5252;color:#fff;border:none;padding:4px 10px;cursor:pointer;">Excluir</button>
+              </div>
+              <div class="jogos-area" id="jogos-area-${doc.id}" style="display:none;margin-top:10px;"></div>
+            `;
+            lista.appendChild(eventoDiv);
+          });
+        });
+      }
+
+      // Expandir/recolher evento
+      $(document).on('click', '.btn-expand-evento', function(){
+        const id = $(this).data('id');
+        const area = document.getElementById('jogos-area-'+id);
+        if (area.style.display === 'none') {
+          area.style.display = 'block';
+          $(this).text('-');
+          renderJogosEvento(id);
+        } else {
+          area.style.display = 'none';
+          $(this).text('+');
+        }
+      });
+
+      // Adicionar Evento
+      $(document).on('submit', '#form-evento', function(e){
+        e.preventDefault();
+        const campeonatoId = $('#evento-campeonato').val();
+        if (!campeonatoId) return;
+        // Buscar nome e logo do campeonato
+        firebase.firestore().collection('campeonatos').doc(campeonatoId).get().then(docCamp => {
+          const campeonatoNome = docCamp.exists ? docCamp.data().nome : '';
+          const campeonatoLogo = docCamp.exists ? docCamp.data().logo : '';
+          firebase.firestore().collection('eventos').get().then(snap => {
+            if (snap.size >= 10) {
+              alert('Limite de 10 eventos atingido!');
+              return;
+            }
+            firebase.firestore().collection('eventos').add({ campeonatoId, campeonatoNome, campeonatoLogo }).then(() => {
+              $('#form-evento')[0].reset();
+              renderEventosDinamico();
+            });
+          });
+        });
+      });
+
+      // Editar Evento
+      window.editarEvento = function(id) {
+        const docRef = firebase.firestore().collection('eventos').doc(id);
+        docRef.get().then(doc => {
+          if (!doc.exists) return;
+          const data = doc.data();
+          const nome = prompt('Editar nome do evento:', data.nome);
+          if (nome === null) return;
+          docRef.update({ nome }).then(renderEventosDinamico);
+        });
+      }
+
+      // Excluir Evento
+      window.excluirEvento = function(id) {
+        if (confirm('Excluir este evento?')) {
+          // Excluir todos os jogos do evento antes de excluir o evento
+          firebase.firestore().collection('eventos').doc(id).collection('jogos').get().then(snapshot => {
+            let promises = [];
+            snapshot.forEach(doc => {
+              promises.push(firebase.firestore().collection('eventos').doc(id).collection('jogos').doc(doc.id).delete());
+            });
+            Promise.all(promises).then(() => {
+              firebase.firestore().collection('eventos').doc(id).delete().then(renderEventosDinamico);
+            });
+          });
+        }
+      }
+
+      // Renderizar jogos do evento
+      function renderJogosEvento(eventoId) {
+        const area = document.getElementById('jogos-area-'+eventoId);
+        area.innerHTML = '<p>Carregando jogos...</p>';
+        firebase.firestore().collection('eventos').doc(eventoId).collection('jogos').get().then(snapshot => {
+          let jogosHtml = '';
+          let count = 0;
+          snapshot.forEach(doc => {
+            if (++count > 4) return; // Limite de 4 jogos
+            const data = doc.data();
+            jogosHtml += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;background:#fff;padding:6px;border-radius:6px;">
+              <img src="${data.logoTime1}" alt="logo1" style="width:32px;height:32px;border-radius:4px;border:1px solid #ccc;">
+              <span style="font-weight:500;">${data.nomeTime1}</span>
+              <input type="number" value="${data.resultadoTime1}" min="0" style="width:40px;">
+              <span style="font-weight:bold;">x</span>
+              <input type="number" value="${data.resultadoTime2}" min="0" style="width:40px;">
+              <span style="font-weight:500;">${data.nomeTime2}</span>
+              <img src="${data.logoTime2}" alt="logo2" style="width:32px;height:32px;border-radius:4px;border:1px solid #ccc;">
+              <button onclick="editarJogo('${eventoId}','${doc.id}')" style="margin-left:auto;background:#eee;border:none;padding:4px 10px;cursor:pointer;">Editar</button>
+              <button onclick="excluirJogo('${eventoId}','${doc.id}')" style="background:#ff5252;color:#fff;border:none;padding:4px 10px;cursor:pointer;">Excluir</button>
+            </div>`;
+          });
+          if (count < 4) {
+            jogosHtml += `<button class="btn-add-jogo" data-evento="${eventoId}" style="background:#FFD600;color:#222;border:none;padding:6px 16px;cursor:pointer;border-radius:6px;font-weight:bold;">Adicionar Jogo</button>`;
+          }
+          area.innerHTML = jogosHtml;
+        });
+      }
+
+      // Adicionar Jogo
+        $(document).on('click', '.btn-add-jogo', function(){
+          const eventoId = $(this).data('evento');
+          // Buscar equipes cadastradas
+          firebase.firestore().collection('equipes').orderBy('nome').get().then(snapshot => {
+            let options = '';
+            snapshot.forEach(doc => {
+              const data = doc.data();
+              options += `<option value="${doc.id}" data-logo="${data.logo}">${data.nome}</option>`;
+            });
+            const formHtml = `<form class="form-jogo" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;background:#fff;padding:8px;border-radius:6px;">
+              <select name="time1" required style="width:140px;"><option value="">Time 1</option>${options}</select>
+              <input type="number" name="resultadoTime1" placeholder="Gols Time 1" required style="width:60px;">
+              <input type="number" name="resultadoTime2" placeholder="Gols Time 2" required style="width:60px;">
+              <select name="time2" required style="width:140px;"><option value="">Time 2</option>${options}</select>
+              <button type="submit" style="background:#FFD600;color:#222;border:none;padding:6px 16px;cursor:pointer;border-radius:6px;font-weight:bold;">Salvar Jogo</button>
+            </form>`;
+            $(this).before(formHtml);
+            $(this).remove();
+          });
+        });
+
+      // Salvar Jogo
+      $(document).on('submit', '.form-jogo', function(e){
+        e.preventDefault();
+        const form = $(this);
+        const eventoId = form.closest('.jogos-area').attr('id').replace('jogos-area-','');
+        // Buscar dados das equipes selecionadas
+        const time1Id = form.find('[name=time1]').val();
+        const time2Id = form.find('[name=time2]').val();
+        if (!time1Id || !time2Id) return;
+        firebase.firestore().collection('equipes').doc(time1Id).get().then(doc1 => {
+          firebase.firestore().collection('equipes').doc(time2Id).get().then(doc2 => {
+            const data1 = doc1.data();
+            const data2 = doc2.data();
+            const jogo = {
+              logoTime1: data1.logo,
+              nomeTime1: data1.nome,
+              resultadoTime1: parseInt(form.find('[name=resultadoTime1]').val()),
+              resultadoTime2: parseInt(form.find('[name=resultadoTime2]').val()),
+              nomeTime2: data2.nome,
+              logoTime2: data2.logo
+            };
+            firebase.firestore().collection('eventos').doc(eventoId).collection('jogos').get().then(snap => {
+              if (snap.size >= 4) {
+                alert('Limite de 4 jogos por evento!');
+                return;
+              }
+              firebase.firestore().collection('eventos').doc(eventoId).collection('jogos').add(jogo).then(() => {
+                renderJogosEvento(eventoId);
+              });
+            });
+          });
+        });
+      });
+
+      // Editar Jogo
+      window.editarJogo = function(eventoId, jogoId) {
+        const docRef = firebase.firestore().collection('eventos').doc(eventoId).collection('jogos').doc(jogoId);
+        docRef.get().then(doc => {
+          if (!doc.exists) return;
+          const data = doc.data();
+          const nomeTime1 = prompt('Editar nome do Time 1:', data.nomeTime1);
+          if (nomeTime1 === null) return;
+          const resultadoTime1 = prompt('Editar gols do Time 1:', data.resultadoTime1);
+          if (resultadoTime1 === null) return;
+          const resultadoTime2 = prompt('Editar gols do Time 2:', data.resultadoTime2);
+          if (resultadoTime2 === null) return;
+          const nomeTime2 = prompt('Editar nome do Time 2:', data.nomeTime2);
+          if (nomeTime2 === null) return;
+          docRef.update({ nomeTime1, resultadoTime1: parseInt(resultadoTime1), resultadoTime2: parseInt(resultadoTime2), nomeTime2 }).then(() => {
+            renderJogosEvento(eventoId);
+          });
+        });
+      }
+
+      // Excluir Jogo
+      window.excluirJogo = function(eventoId, jogoId) {
+        if (confirm('Excluir este jogo?')) {
+          firebase.firestore().collection('eventos').doc(eventoId).collection('jogos').doc(jogoId).delete().then(() => {
+            renderJogosEvento(eventoId);
+          });
+        }
+      }
+      function renderEquipes() {
+        const lista = document.getElementById('equipes-lista');
+        lista.innerHTML = '<p>Carregando...</p>';
+        firebase.firestore().collection('equipes').orderBy('nome').get().then(snapshot => {
+          if (snapshot.empty) {
+            lista.innerHTML = '<p>Nenhuma equipe cadastrada.</p>';
+            return;
+          }
+          lista.innerHTML = '';
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            const item = document.createElement('div');
+            item.className = 'equipe-item';
+            item.style.display = 'flex';
+            item.style.alignItems = 'center';
+            item.style.gap = '8px';
+            item.style.marginBottom = '8px';
+            item.innerHTML = `
+              <img src="${data.logo}" alt="logo" style="width:32px;height:32px;border-radius:4px;border:1px solid #ccc;">
+              <span style="font-weight:500;">${data.nome}</span>
+              <button onclick="editarEquipe('${doc.id}')" style="margin-left:auto;background:#eee;border:none;padding:4px 10px;cursor:pointer;">Editar</button>
+              <button onclick="excluirEquipe('${doc.id}')" style="background:#ff5252;color:#fff;border:none;padding:4px 10px;cursor:pointer;">Excluir</button>
+            `;
+            lista.appendChild(item);
+          });
+        });
+      }
+
+      // Adicionar Equipe
+      $(document).on('submit', '#form-equipe', function(e){
+        e.preventDefault();
+        const nome = $('#nome-equipe').val().trim();
+        const logo = $('#logo-equipe').val().trim();
+        if (!nome || !logo) return;
+        firebase.firestore().collection('equipes').add({ nome, logo }).then(() => {
+          $('#form-equipe')[0].reset();
+          renderEquipes();
+        });
+      });
+
+      // Editar Equipe
+      window.editarEquipe = function(id) {
+        const docRef = firebase.firestore().collection('equipes').doc(id);
+        docRef.get().then(doc => {
+          if (!doc.exists) return;
+          const data = doc.data();
+          const nome = prompt('Editar nome da equipe:', data.nome);
+          if (nome === null) return;
+          const logo = prompt('Editar URL do logo:', data.logo);
+          if (logo === null) return;
+          docRef.update({ nome, logo }).then(renderEquipes);
+        });
+      }
+
+      // Excluir Equipe
+      window.excluirEquipe = function(id) {
+        if (confirm('Excluir esta equipe?')) {
+          firebase.firestore().collection('equipes').doc(id).delete().then(renderEquipes);
+        }
+      }
+      function renderCampeonatos() {
+        const lista = document.getElementById('campeonatos-lista');
+        lista.innerHTML = '<p>Carregando...</p>';
+        firebase.firestore().collection('campeonatos').orderBy('nome').get().then(snapshot => {
+          if (snapshot.empty) {
+            lista.innerHTML = '<p>Nenhum campeonato cadastrado.</p>';
+            return;
+          }
+          lista.innerHTML = '';
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            const item = document.createElement('div');
+            item.className = 'campeonato-item';
+            item.style.display = 'flex';
+            item.style.alignItems = 'center';
+            item.style.gap = '8px';
+            item.style.marginBottom = '8px';
+            item.innerHTML = `
+              <img src="${data.logo}" alt="logo" style="width:32px;height:32px;border-radius:4px;border:1px solid #ccc;">
+              <span style="font-weight:500;">${data.nome}</span>
+              <button onclick="editarCampeonato('${doc.id}')" style="margin-left:auto;background:#eee;border:none;padding:4px 10px;cursor:pointer;">Editar</button>
+              <button onclick="excluirCampeonato('${doc.id}')" style="background:#ff5252;color:#fff;border:none;padding:4px 10px;cursor:pointer;">Excluir</button>
+            `;
+            lista.appendChild(item);
+          });
+        });
+      }
+
+      // Adicionar Campeonato
+      $(document).on('submit', '#form-campeonato', function(e){
+        e.preventDefault();
+        const nome = $('#nome-campeonato').val().trim();
+        const logo = $('#logo-campeonato').val().trim();
+        if (!nome || !logo) return;
+        firebase.firestore().collection('campeonatos').add({ nome, logo }).then(() => {
+          $('#form-campeonato')[0].reset();
+          renderCampeonatos();
+      renderEquipes();
+        });
+      });
+
+      // Editar Campeonato
+      window.editarCampeonato = function(id) {
+        const docRef = firebase.firestore().collection('campeonatos').doc(id);
+        docRef.get().then(doc => {
+          if (!doc.exists) return;
+          const data = doc.data();
+          const nome = prompt('Editar nome do campeonato:', data.nome);
+          if (nome === null) return;
+          const logo = prompt('Editar URL do logo:', data.logo);
+          if (logo === null) return;
+          docRef.update({ nome, logo }).then(renderCampeonatos);
+        });
+      }
+
+      // Excluir Campeonato
+      window.excluirCampeonato = function(id) {
+        if (confirm('Excluir este campeonato?')) {
+          firebase.firestore().collection('campeonatos').doc(id).delete().then(renderCampeonatos);
+        }
+  }
+    function renderDestaques() {
+      $('#painel-conteudo').html('<h2 style="color:#FFD600;">Painel de Destaques</h2><div id="destaques-area" style="max-width:700px;margin:auto;"></div>');
+      renderDestaquesLista();
+    }
+
+    // Renderizar lista de destaques
+    function renderDestaquesLista() {
+      const area = document.getElementById('destaques-area');
+      area.innerHTML = '<p>Carregando...</p>';
+      firebase.firestore().collection('destaques').orderBy('ordem').get().then(snapshot => {
+        let destaques = [];
+        snapshot.forEach(doc => {
+          destaques.push({id: doc.id, ...doc.data()});
+        });
+        // Se não houver 5, cria os faltantes
+        const promises = [];
+        for(let i=destaques.length;i<5;i++) {
+          const novo = {titulo: 'Novo Destaque', imagem: '', descricao: '', ordem: i};
+          promises.push(firebase.firestore().collection('destaques').add(novo));
+        }
+        Promise.all(promises).then(()=>{
+          firebase.firestore().collection('destaques').orderBy('ordem').get().then(snap=>{
+            let destaques2 = [];
+            snap.forEach(doc=>destaques2.push({id:doc.id,...doc.data()}));
+            renderDestaquesItens(destaques2);
+          });
+        });
+        if(promises.length===0) renderDestaquesItens(destaques);
+      });
+    }
+
+    // Renderizar itens com drag & drop
+    function renderDestaquesItens(destaques) {
+      const area = document.getElementById('destaques-area');
+      area.innerHTML = '';
+      destaques.forEach((destaque,idx)=>{
+        const div = document.createElement('div');
+        div.className = 'destaque-item';
+        div.setAttribute('draggable','true');
+        div.style.display = 'flex';
+        div.style.alignItems = 'center';
+        div.style.gap = '12px';
+        div.style.background = '#FFFDE7';
+        div.style.border = '1px solid #FFD600';
+        div.style.borderRadius = '8px';
+        div.style.marginBottom = '12px';
+        div.style.padding = '10px';
+        div.style.cursor = 'grab';
+        div.setAttribute('data-idx',idx);
+        div.setAttribute('data-id',destaque.id);
+        div.innerHTML = `
+          <button class="btn-drag" style="background:#FFD600;border:none;border-radius:4px;width:28px;height:28px;cursor:grab;font-weight:bold;">&#9776;</button>
+          <span style="font-size:1.1em;font-weight:600;flex:1;">${destaque.titulo}</span>
+          <button class="btn-expand-destaque" data-id="${destaque.id}" style="background:#FFD600;border:none;border-radius:50%;width:28px;height:28px;font-weight:bold;cursor:pointer;">+</button>
+        `;
+        area.appendChild(div);
+        // Área de edição (expansível)
+        const editDiv = document.createElement('div');
+        editDiv.className = 'destaque-edit-area';
+        editDiv.style.display = 'none';
+        editDiv.style.marginTop = '10px';
+        editDiv.style.background = '#fff';
+        editDiv.style.borderRadius = '8px';
+        editDiv.style.padding = '12px';
+        editDiv.innerHTML = `
+          <form class="form-destaque" data-id="${destaque.id}" style="display:flex;flex-direction:column;gap:8px;max-width:500px;">
+            <label>Título:<input type="text" name="titulo" value="${destaque.titulo}" required style="padding:6px;"></label>
+            <label>Imagem (URL):<input type="text" name="imagem" value="${destaque.imagem}" style="padding:6px;"></label>
+            <label>Descrição:<textarea name="descricao" rows="3" style="padding:6px;">${destaque.descricao}</textarea></label>
+            <label>Link da matéria:<input type="text" name="link" value="${destaque.link||''}" style="padding:6px;"></label>
+            <label>Fonte:<input type="text" name="fonte" value="${destaque.fonte||''}" style="padding:6px;"></label>
+            <button type="submit" style="background:#FFD600;color:#222;border:none;padding:8px 18px;cursor:pointer;border-radius:6px;font-weight:bold;">Salvar</button>
+          </form>
+        `;
+        area.appendChild(editDiv);
+        // Expandir/recolher destaque
+        div.querySelector('.btn-expand-destaque').onclick = function(){
+          if(editDiv.style.display==='none'){
+            editDiv.style.display='block';
+            this.textContent='-';
+          }else{
+            editDiv.style.display='none';
+            this.textContent='+';
+          }
+        };
+        // Drag & drop
+        div.ondragstart = function(e){
+          e.dataTransfer.setData('idx',div.getAttribute('data-idx'));
+        };
+        div.ondragover = function(e){e.preventDefault();};
+        div.ondrop = function(e){
+          e.preventDefault();
+          const fromIdx = parseInt(e.dataTransfer.getData('idx'));
+          const toIdx = parseInt(div.getAttribute('data-idx'));
+          if(fromIdx===toIdx) return;
+          // Troca ordem local
+          const arr = [...destaques];
+          const moved = arr.splice(fromIdx,1)[0];
+          arr.splice(toIdx,0,moved);
+          // Atualiza ordem no firebase
+          arr.forEach((d,i)=>{
+            firebase.firestore().collection('destaques').doc(d.id).update({ordem:i});
+          });
+          setTimeout(renderDestaquesLista,500);
+        };
+      });
+    }
+
+    // Salvar edição do destaque
+    $(document).on('submit','.form-destaque',function(e){
+      e.preventDefault();
+      const id = $(this).data('id');
+      const titulo = $(this).find('[name=titulo]').val();
+      const imagem = $(this).find('[name=imagem]').val();
+      const descricao = $(this).find('[name=descricao]').val();
+      const link = $(this).find('[name=link]').val();
+      const fonte = $(this).find('[name=fonte]').val();
+      firebase.firestore().collection('destaques').doc(id).update({titulo,imagem,descricao,link,fonte}).then(renderDestaquesLista);
+  });
+    function renderNoticias() {
+      $('#painel-conteudo').html(`
+        <h2 style="color:#FFD600;">Painel de Notícias</h2>
+        <form id="form-noticia" style="display:flex;flex-direction:column;gap:14px;max-width:600px;margin:auto;">
+          <label>Título:<input type="text" id="noticia-titulo" required style="padding:6px;width:100%;"></label>
+          <label>Imagem URL:<input type="text" id="noticia-img" required style="padding:6px;width:100%;"></label>
+          <label>Texto:<textarea id="noticia-texto" rows="5" required style="padding:6px;width:100%;"></textarea></label>
+          <label>Fonte:<input type="text" id="noticia-fonte" style="padding:6px;width:100%;"></label>
+        </form>
+        <button id="btn-add-noticia" style="background:#FFD600;color:#222;border:none;padding:10px 28px;cursor:pointer;border-radius:8px;font-weight:bold;display:block;margin:24px auto 0 auto;">Adicionar Notícia</button>
+        <div id="msg-noticia" style="margin-top:18px;text-align:center;color:#222;font-weight:bold;"></div>
+      `);
+        // Lógica do botão: envia para Firebase
+        $('#btn-add-noticia').on('click', async function(){
+          const titulo = $('#noticia-titulo').val().trim();
+          const imagem = $('#noticia-img').val().trim();
+          const texto = $('#noticia-texto').val().trim();
+          const fonte = $('#noticia-fonte').val().trim();
+          if(!titulo || !imagem || !texto) {
+            $('#msg-noticia').css('color','#c00').text('Preencha todos os campos obrigatórios!');
+            return;
+          }
+          $('#btn-add-noticia').prop('disabled', true);
+          $('#msg-noticia').css('color','#222').text('Enviando...');
+          try {
+            await firebase.firestore().collection('noticias').add({
+              titulo,
+              imagem,
+              texto,
+              fonte,
+              data: new Date().toISOString()
+            });
+            $('#msg-noticia').css('color','#00C853').text('Notícia cadastrada com sucesso!');
+            $('#form-noticia')[0].reset();
+          } catch (err) {
+            $('#msg-noticia').css('color','#c00').text('Erro ao cadastrar notícia!');
+          }
+          $('#btn-add-noticia').prop('disabled', false);
+        });
+    }
+    function renderPatrocinadores() {
+      $('#painel-conteudo').html(`
+        <h2 style="color:#FFD600;">Painel de Patrocinadores</h2>
+        <form id="form-patrocinadores" style="display:flex;flex-direction:column;gap:14px;max-width:600px;margin:auto;"></form>
+        <button id="btn-add-pub" type="button" style="background:#FFD600;color:#222;border:none;padding:10px 28px;cursor:pointer;border-radius:8px;font-weight:bold;display:block;margin:24px auto 0 auto;">Adicionar Publicidade</button>
+        <button id="btn-save-pub" type="button" style="background:#00C853;color:#fff;border:none;padding:10px 28px;cursor:pointer;border-radius:8px;font-weight:bold;display:block;margin:12px auto 0 auto;">Salvar</button>
+        <div id="msg-pub" style="margin-top:18px;text-align:center;color:#222;font-weight:bold;"></div>
+      `);
+      // Carregar valores atuais do Firebase
+      firebase.firestore().collection('patrocinadores').doc('publicidades').get().then(doc=>{
+        let pubs = doc.exists && doc.data().publicidades ? doc.data().publicidades : ["",""];
+        if(pubs.length<2) pubs = [pubs[0]||"",pubs[1]||""];
+        let pubCount = pubs.length;
+        let formHtml = '';
+        formHtml += `<label>Publicidade 1:<input type="text" name="pub1" class="pub-input" required style="padding:6px;width:100%;" value="${pubs[0]||''}"></label>`;
+        formHtml += `<label>Publicidade 2:<input type="text" name="pub2" class="pub-input" required style="padding:6px;width:100%;" value="${pubs[1]||''}"></label>`;
+        formHtml += `<div id="extra-pub-area"></div>`;
+        $('#form-patrocinadores').html(formHtml);
+        // Adicionar campos extras já existentes
+        for(let i=2;i<pubs.length;i++){
+          $('#extra-pub-area').append(`
+            <div class="pub-extra" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <label style="flex:1;">Publicidade ${i+1}:<input type="text" name="pub${i+1}" class="pub-input" style="padding:6px;width:100%;" value="${pubs[i]||''}"></label>
+              <button type="button" class="btn-del-pub" style="background:#ff5252;color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;">Excluir</button>
+            </div>
+          `);
+        }
+        // Adicionar nova publicidade
+        $('#btn-add-pub').off('click').on('click', function(){
+          pubCount++;
+          $('#extra-pub-area').append(`
+            <div class="pub-extra" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <label style="flex:1;">Publicidade ${pubCount}:<input type="text" name="pub${pubCount}" class="pub-input" style="padding:6px;width:100%;"></label>
+              <button type="button" class="btn-del-pub" style="background:#ff5252;color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;">Excluir</button>
+            </div>
+          `);
+        });
+        // Remover publicidade extra
+        $(document).off('click','.btn-del-pub').on('click','.btn-del-pub',function(){
+          $(this).closest('.pub-extra').remove();
+        });
+        // Salvar publicidades no Firebase
+        $('#btn-save-pub').off('click').on('click',function(e){
+          e.preventDefault();
+          let pubs = [];
+          $('.pub-input').each(function(){
+            const val = $(this).val().trim();
+            if(val) pubs.push(val);
+          });
+          if(pubs.length<2){
+            $('#msg-pub').css('color','#c00').text('Preencha pelo menos as duas primeiras publicidades!');
+            return;
+          }
+          firebase.firestore().collection('patrocinadores').doc('publicidades').set({publicidades:pubs}).then(()=>{
+            $('#msg-pub').css('color','#00C853').text('Publicidades salvas com sucesso!');
+          });
+        });
+      });
+    }
+
+    $(document).ready(function() {
+      $('#btnAdicionarNoticia').on('click', function(e) {
+        e.preventDefault();
+        var titulo = $('#noticia-titulo').val();
+        var imagem = $('#noticia-img').val();
+        var texto = $('#noticia-texto').val();
+        var fonte = $('#noticia-fonte').val();
+        db.collection('noticias').add({
+          titulo: titulo,
+          imagem: imagem,
+          texto: texto,
+          fonte: fonte,
+          data: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(function(docRef) {
+          alert('Notícia adicionada com sucesso!');
+          // Limpar formulário ou redirecionar
+        }).catch(function(error) {
+          alert('Erro ao adicionar notícia: ' + error);
+        });
+      });
+    });
+  </script>
+</body>
+</html>
